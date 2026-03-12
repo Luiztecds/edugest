@@ -8,16 +8,61 @@ import Professores from './pages/Professores';
 import Turmas from './pages/Turmas';
 import Notas from './pages/Notas';
 import Frequencia from './pages/Frequencia';
+import Calendario from './pages/Calendario';
+import Avisos from './pages/Avisos';
+import Perfil from './pages/Perfil';
+import Importar from './pages/Importar';
 import './styles/global.css';
 
 const PAGE_TITLES = {
-  '/dashboard': 'Dashboard',
-  '/alunos': 'Gestão de Alunos',
+  '/dashboard':   'Dashboard',
+  '/alunos':      'Gestão de Alunos',
   '/professores': 'Gestão de Professores',
-  '/turmas': 'Gestão de Turmas',
-  '/notas': 'Notas e Avaliações',
-  '/frequencia': 'Controle de Frequência',
+  '/turmas':      'Gestão de Turmas',
+  '/notas':       'Notas e Avaliações',
+  '/frequencia':  'Controle de Frequência',
+  '/calendario':  'Calendário Escolar',
+  '/avisos':      'Mural de Avisos',
+  '/perfil':      'Meu Perfil',
+  '/importar':    'Importar Planilha',
 };
+
+// Quais perfis podem acessar cada rota
+const ROTA_PERFIS = {
+  '/dashboard':   ['admin', 'professor', 'aluno'],
+  '/alunos':      ['admin'],
+  '/professores': ['admin'],
+  '/turmas':      ['admin', 'professor'],
+  '/notas':       ['admin', 'professor', 'aluno'],
+  '/frequencia':  ['admin', 'professor', 'aluno'],
+  '/calendario':  ['admin', 'professor', 'aluno'],
+  '/avisos':      ['admin', 'professor', 'aluno'],
+  '/perfil':      ['admin', 'professor', 'aluno'],
+  '/importar':    ['admin'],
+};
+
+function RotaProtegida({ element, rota }) {
+  const { perfil } = useAuth();
+  const permitidos = ROTA_PERFIS[rota] || [];
+  if (!permitidos.includes(perfil)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return element;
+}
+
+function AcessoNegado() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '60vh', gap: 16, textAlign: 'center'
+    }}>
+      <div style={{ fontSize: 64 }}>🔒</div>
+      <h2 style={{ fontSize: 24, color: 'var(--gray-700)' }}>Acesso não permitido</h2>
+      <p style={{ color: 'var(--gray-500)' }}>Você não tem permissão para acessar esta página.</p>
+      <Navigate to="/dashboard" replace />
+    </div>
+  );
+}
 
 function PrivateLayout() {
   const { user, loading } = useAuth();
@@ -57,13 +102,17 @@ function PrivateLayout() {
         </header>
         <main className="page-body">
           <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/alunos" element={<Alunos />} />
-            <Route path="/professores" element={<Professores />} />
-            <Route path="/turmas" element={<Turmas />} />
-            <Route path="/notas" element={<Notas />} />
-            <Route path="/frequencia" element={<Frequencia />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard"   element={<RotaProtegida rota="/dashboard"   element={<Dashboard />} />} />
+            <Route path="/alunos"      element={<RotaProtegida rota="/alunos"      element={<Alunos />} />} />
+            <Route path="/professores" element={<RotaProtegida rota="/professores" element={<Professores />} />} />
+            <Route path="/turmas"      element={<RotaProtegida rota="/turmas"      element={<Turmas />} />} />
+            <Route path="/notas"       element={<RotaProtegida rota="/notas"       element={<Notas />} />} />
+            <Route path="/frequencia"  element={<RotaProtegida rota="/frequencia"  element={<Frequencia />} />} />
+            <Route path="/calendario"  element={<RotaProtegida rota="/calendario"  element={<Calendario />} />} />
+            <Route path="/avisos"      element={<RotaProtegida rota="/avisos"      element={<Avisos />} />} />
+            <Route path="/perfil"      element={<RotaProtegida rota="/perfil"      element={<Perfil />} />} />
+            <Route path="/importar"    element={<RotaProtegida rota="/importar"    element={<Importar />} />} />
+            <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
       </div>
@@ -84,7 +133,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<PublicRoute />} />
-          <Route path="/*" element={<PrivateLayout />} />
+          <Route path="/*"     element={<PrivateLayout />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

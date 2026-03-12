@@ -44,8 +44,13 @@ export function AuthProvider({ children }) {
     await authService.signOut();
   };
 
+  const atualizarPerfil = (updatedUser) => {
+    setUser(updatedUser);
+    setPerfil(updatedUser.user_metadata?.perfil || 'aluno');
+  };
+
   return (
-    <AuthContext.Provider value={{ user, perfil, loading, login, cadastrar, logout }}>
+    <AuthContext.Provider value={{ user, perfil, loading, login, cadastrar, logout, atualizarPerfil }}>
       {children}
     </AuthContext.Provider>
   );

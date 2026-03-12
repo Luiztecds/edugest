@@ -1,26 +1,39 @@
 import { useEffect, useState } from 'react';
 import { frequenciaService, alunosService, turmasService } from '../services/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function Frequencia() {
-  const [alunos, setAlunos] = useState([]);
-  const [turmas, setTurmas] = useState([]);
-  const [historico, setHistorico] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState('');
-  const [sucesso, setSucesso] = useState('');
+  const { perfil, user } = useAuth();
+  const isAdmin     = perfil === 'admin';
+  const isProfessor = perfil === 'professor';
+  const isAluno     = perfil === 'aluno';
+
+  const [alunos, setAlunos]           = useState([]);
+  const [turmas, setTurmas]           = useState([]);
+  const [historico, setHistorico]     = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [salvando, setSalvando]       = useState(false);
+  const [erro, setErro]               = useState('');
+  const [sucesso, setSucesso]         = useState('');
+  const [meuAlunoId, setMeuAlunoId]   = useState(null);
 
   const hoje = new Date().toISOString().split('T')[0];
-  const [data, setData] = useState(hoje);
-  const [turmaId, setTurmaId] = useState('');
-  const [presencas, setPresencas] = useState({});
-  const [alunosTurma, setAlunosTurma] = useState([]);
-  const [aba, setAba] = useState('registrar');
+  const [data, setData]                     = useState(hoje);
+  const [turmaId, setTurmaId]               = useState('');
+  const [presencas, setPresencas]           = useState({});
+  const [alunosTurma, setAlunosTurma]       = useState([]);
+  const [aba, setAba]                       = useState(isAluno ? 'historico' : 'registrar');
   const [filtroAlunoHist, setFiltroAlunoHist] = useState('');
 
   useEffect(() => {
     Promise.all([alunosService.listar(), turmasService.listar()])
-      .then(([a, t]) => { setAlunos(a); setTurmas(t); })
+      .then(([a, t]) => {
+        setAlunos(a); setTurmas(t);
+        if (isAluno) {
+          const me = a.find(al => al.email === user?.email);
+          if (me) setMeuAlunoId(me.id);
+        }
+      })
       .catch(e => setErro(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -37,20 +50,20 @@ export default function Frequencia() {
   const carregarHistorico = async () => {
     try {
       const filtros = {};
-      if (filtroAlunoHist) filtros.aluno_id = filtroAlunoHist;
-      if (turmaId) filtros.turma_id = turmaId;
+      if (isAluno && meuAlunoId)     filtros.aluno_id = meuAlunoId;
+      else if (filtroAlunoHist)      filtros.aluno_id = filtroAlunoHist;
+      if (turmaId)                   filtros.turma_id = turmaId;
       const h = await frequenciaService.listar(filtros);
       setHistorico(h);
     } catch (e) { setErro(e.message); }
   };
 
-  useEffect(() => { if (aba === 'historico') carregarHistorico(); }, [aba, filtroAlunoHist, turmaId]);
+  useEffect(() => {
+    if (aba === 'historico') carregarHistorico();
+  }, [aba, filtroAlunoHist, turmaId, meuAlunoId]);
 
   const togglePresenca = (alunoId) => {
-    setPresencas(p => ({
-      ...p,
-      [alunoId]: p[alunoId] === 'presente' ? 'falta' : 'presente'
-    }));
+    setPresencas(p => ({ ...p, [alunoId]: p[alunoId] === 'presente' ? 'falta' : 'presente' }));
   };
 
   const salvar = async () => {
@@ -60,10 +73,7 @@ export default function Frequencia() {
     setSalvando(true); setErro(''); setSucesso('');
     try {
       const registros = alunosTurma.map(a => ({
-        aluno_id: a.id,
-        turma_id: turmaId,
-        data,
-        status: presencas[a.id] || 'falta'
+        aluno_id: a.id, turma_id: turmaId, data, status: presencas[a.id] || 'falta'
       }));
       await frequenciaService.registrar(registros);
       setSucesso(`Frequência do dia ${data} registrada com sucesso!`);
@@ -71,32 +81,78 @@ export default function Frequencia() {
     finally { setSalvando(false); }
   };
 
-  const presentes = alunosTurma.filter(a => presencas[a.id] === 'presente').length;
-  const faltas = alunosTurma.length - presentes;
+  // Resumo do histórico do aluno
+  const totalAulas   = historico.length;
+  const totalPresente = historico.filter(h => h.status === 'presente').length;
+  const pctFreq       = totalAulas > 0 ? Math.round(totalPresente / totalAulas * 100) : null;
+  const corFreq       = pctFreq >= 75 ? 'green' : pctFreq >= 50 ? 'amber' : 'rose';
 
-  // Calcular % frequencia por aluno
-  const calcFreq = (alunoId) => {
-    const registrosAluno = historico.filter(h => h.aluno_id === alunoId);
-    if (!registrosAluno.length) return null;
-    const pct = (registrosAluno.filter(h => h.status === 'presente').length / registrosAluno.length * 100).toFixed(0);
-    return pct;
-  };
+  const presentes = alunosTurma.filter(a => presencas[a.id] === 'presente').length;
+  const faltas    = alunosTurma.length - presentes;
 
   if (loading) return <div className="loading-container"><div className="spinner" /></div>;
 
   return (
     <>
-      <div style={{ marginBottom: 20 }}>
-        <div className="tabs">
-          <button className={`tab-btn ${aba === 'registrar' ? 'active' : ''}`} onClick={() => setAba('registrar')}>📅 Registrar Chamada</button>
-          <button className={`tab-btn ${aba === 'historico' ? 'active' : ''}`} onClick={() => setAba('historico')}>📊 Histórico</button>
+      {/* Tabs — aluno não vê aba de registrar */}
+      {!isAluno && (
+        <div style={{ marginBottom: 20 }}>
+          <div className="tabs">
+            <button className={`tab-btn ${aba === 'registrar' ? 'active' : ''}`} onClick={() => setAba('registrar')}>📅 Registrar Chamada</button>
+            <button className={`tab-btn ${aba === 'historico' ? 'active' : ''}`} onClick={() => setAba('historico')}>📊 Histórico</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {erro && <div className="alert alert-error" style={{ marginBottom: 16 }}>⚠️ {erro}</div>}
+      {erro    && <div className="alert alert-error"   style={{ marginBottom: 16 }}>⚠️ {erro}</div>}
       {sucesso && <div className="alert alert-success" style={{ marginBottom: 16 }}>✓ {sucesso}</div>}
 
-      {aba === 'registrar' && (
+      {/* ========== ALUNO: resumo pessoal ========== */}
+      {isAluno && (
+        <>
+          {meuAlunoId === null && (
+            <div className="alert alert-info" style={{ marginBottom: 20 }}>
+              ℹ️ Seu cadastro de aluno ainda não foi vinculado a este email. Peça ao administrador para atualizar seu email no cadastro.
+            </div>
+          )}
+
+          {pctFreq !== null && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 24 }}>
+              <div className="stat-card">
+                <div className="stat-icon teal">📅</div>
+                <div className="stat-info">
+                  <div className="stat-value">{totalAulas}</div>
+                  <div className="stat-label">Total de aulas</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon green">✓</div>
+                <div className="stat-info">
+                  <div className="stat-value">{totalPresente}</div>
+                  <div className="stat-label">Presenças</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon rose">✗</div>
+                <div className="stat-info">
+                  <div className="stat-value">{totalAulas - totalPresente}</div>
+                  <div className="stat-label">Faltas</div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className={`stat-icon ${corFreq}`}>%</div>
+                <div className="stat-info">
+                  <div className="stat-value" style={{ color: `var(--${corFreq === 'green' ? 'green' : corFreq === 'amber' ? 'amber' : 'rose'})` }}>{pctFreq}%</div>
+                  <div className="stat-label">Frequência {pctFreq >= 75 ? '✓ Regular' : '⚠️ Irregular'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ========== REGISTRAR CHAMADA (admin/professor) ========== */}
+      {aba === 'registrar' && !isAluno && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }}>
           <div className="card">
             <div className="card-header">
@@ -202,31 +258,39 @@ export default function Frequencia() {
         </div>
       )}
 
-      {aba === 'historico' && (
+      {/* ========== HISTÓRICO ========== */}
+      {(aba === 'historico' || isAluno) && (
         <div className="card">
           <div className="card-header">
             <h2>Histórico de Frequência</h2>
-            <div style={{ display: 'flex', gap: 12 }}>
+            {!isAluno && (
               <select className="form-select" value={filtroAlunoHist} onChange={e => setFiltroAlunoHist(e.target.value)} style={{ width: 220 }}>
                 <option value="">Todos os alunos</option>
                 {alunos.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
               </select>
-            </div>
+            )}
           </div>
           <div className="table-container">
             {historico.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">📊</div>
                 <h3>Nenhum registro encontrado</h3>
-                <p>Registre chamadas para ver o histórico</p>
+                <p>{isAluno ? 'Suas presenças aparecerão aqui' : 'Registre chamadas para ver o histórico'}</p>
               </div>
             ) : (
               <table className="table">
-                <thead><tr><th>Aluno</th><th>Data</th><th>Turma</th><th>Status</th></tr></thead>
+                <thead>
+                  <tr>
+                    {!isAluno && <th>Aluno</th>}
+                    <th>Data</th>
+                    <th>Turma</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {historico.map(h => (
                     <tr key={h.id}>
-                      <td style={{ fontWeight: 500 }}>{h.alunos?.nome || '—'}</td>
+                      {!isAluno && <td style={{ fontWeight: 500 }}>{h.alunos?.nome || '—'}</td>}
                       <td style={{ color: 'var(--gray-500)', fontFamily: 'monospace' }}>
                         {new Date(h.data + 'T12:00:00').toLocaleDateString('pt-BR')}
                       </td>

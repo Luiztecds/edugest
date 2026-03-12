@@ -226,3 +226,105 @@ export const dashboardService = {
     };
   }
 };
+
+// ===================== CALENDÁRIO =====================
+export const calendarioService = {
+  async listar() {
+    const { data, error } = await supabase
+      .from('eventos')
+      .select('*')
+      .order('data_inicio');
+    if (error) throw error;
+    return data;
+  },
+
+  async criar(evento) {
+    const { data, error } = await supabase.from('eventos').insert([evento]).select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  async atualizar(id, evento) {
+    const { data, error } = await supabase.from('eventos').update(evento).eq('id', id).select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  async excluir(id) {
+    const { error } = await supabase.from('eventos').delete().eq('id', id);
+    if (error) throw error;
+  }
+};
+
+// ===================== AVISOS =====================
+export const avisosService = {
+  async listar() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('avisos')
+      .select('*, autor:autor_id(email, raw_user_meta_data)')
+      .or(`data_expiracao.is.null,data_expiracao.gte.${hoje}`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async listarTodos() {
+    const { data, error } = await supabase
+      .from('avisos')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async criar(aviso) {
+    const { data, error } = await supabase.from('avisos').insert([aviso]).select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  async atualizar(id, aviso) {
+    const { data, error } = await supabase.from('avisos').update(aviso).eq('id', id).select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  async excluir(id) {
+    const { error } = await supabase.from('avisos').delete().eq('id', id);
+    if (error) throw error;
+  }
+};
+
+// ===================== PERFIL =====================
+export const perfilService = {
+  async atualizarMetadata(dados) {
+    const { data, error } = await supabase.auth.updateUser({ data: dados });
+    if (error) throw error;
+    return data.user;
+  },
+
+  async alterarSenha(novaSenha) {
+    const { data, error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) throw error;
+    return data;
+  },
+
+  async uploadFoto(userId, file) {
+    const ext  = file.name.split('.').pop();
+    const path = `avatars/${userId}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) throw upErr;
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl + `?t=${Date.now()}`;
+  },
+
+  async removerFoto(userId) {
+    // Tenta remover jpg, jpeg, png, webp
+    for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
+      await supabase.storage.from('avatars').remove([`avatars/${userId}.${ext}`]);
+    }
+  }
+};
