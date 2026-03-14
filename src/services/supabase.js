@@ -1,11 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Configure suas credenciais do Supabase aqui
-// Acesse: https://supabase.com → Seu projeto → Settings → API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://seu-projeto.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sua-chave-anonima';
+const SUPABASE_URL         = import.meta.env.VITE_SUPABASE_URL              || 'https://seu-projeto.supabase.co';
+const SUPABASE_ANON_KEY    = import.meta.env.VITE_SUPABASE_ANON_KEY         || 'sua-chave-anonima';
+const SUPABASE_SERVICE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
+// Cliente normal (usuario logado)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Cliente admin (service role) - usado so na pagina de Usuarios pelo admin
+export const supabaseAdmin = SUPABASE_SERVICE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
 // ===================== AUTH =====================
 export const authService = {
@@ -45,9 +52,16 @@ export const alunosService = {
   async listar() {
     const { data, error } = await supabase
       .from('alunos')
-      .select('*, turmas(nome)')
+      .select('*')
       .order('nome');
     if (error) throw error;
+
+    // Join manual com turmas (evita dependência de FK no schema cache)
+    if (data?.length) {
+      const { data: turmas } = await supabase.from('turmas').select('id, nome');
+      const turmasMap = Object.fromEntries((turmas || []).map(t => [t.id, t]));
+      return data.map(a => ({ ...a, turmas: turmasMap[a.turma_id] || null }));
+    }
     return data;
   },
 

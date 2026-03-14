@@ -12,6 +12,7 @@ import Calendario from './pages/Calendario';
 import Avisos from './pages/Avisos';
 import Perfil from './pages/Perfil';
 import Importar from './pages/Importar';
+import Usuarios from './pages/Usuarios';
 import './styles/global.css';
 
 const PAGE_TITLES = {
@@ -25,9 +26,9 @@ const PAGE_TITLES = {
   '/avisos':      'Mural de Avisos',
   '/perfil':      'Meu Perfil',
   '/importar':    'Importar Planilha',
+  '/usuarios':    'Gerenciar Usuários',
 };
 
-// Quais perfis podem acessar cada rota
 const ROTA_PERFIS = {
   '/dashboard':   ['admin', 'professor', 'aluno'],
   '/alunos':      ['admin'],
@@ -39,6 +40,7 @@ const ROTA_PERFIS = {
   '/avisos':      ['admin', 'professor', 'aluno'],
   '/perfil':      ['admin', 'professor', 'aluno'],
   '/importar':    ['admin'],
+  '/usuarios':    ['admin'],
 };
 
 function RotaProtegida({ element, rota }) {
@@ -112,6 +114,7 @@ function PrivateLayout() {
             <Route path="/avisos"      element={<RotaProtegida rota="/avisos"      element={<Avisos />} />} />
             <Route path="/perfil"      element={<RotaProtegida rota="/perfil"      element={<Perfil />} />} />
             <Route path="/importar"    element={<RotaProtegida rota="/importar"    element={<Importar />} />} />
+            <Route path="/usuarios"    element={<RotaProtegida rota="/usuarios"    element={<Usuarios />} />} />
             <Route path="*"            element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

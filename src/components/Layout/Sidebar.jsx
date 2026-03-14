@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/professores', icon: '👨‍🏫', label: 'Professores', section: 'Gestão',    perfis: ['admin'] },
   { to: '/turmas',      icon: '🏫', label: 'Turmas',      section: 'Gestão',    perfis: ['admin', 'professor'] },
   { to: '/importar',    icon: '📥', label: 'Importar',    section: 'Gestão',    perfis: ['admin'] },
+  { to: '/usuarios',    icon: '👥', label: 'Usuários',    section: 'Gestão',    perfis: ['admin'] },
   { to: '/notas',       icon: '📝', label: 'Notas',        section: 'Acadêmico', perfis: ['admin', 'professor', 'aluno'] },
   { to: '/frequencia',  icon: '📅', label: 'Frequência',  section: 'Acadêmico', perfis: ['admin', 'professor', 'aluno'] },
   { to: '/calendario',  icon: '🗓️', label: 'Calendário',  section: 'Acadêmico', perfis: ['admin', 'professor', 'aluno'] },

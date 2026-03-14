@@ -39,20 +39,47 @@ function mapearColunas(headers, mapa) {
   return resultado;
 }
 
-// Normalizar data — aceita dd/mm/yyyy, yyyy-mm-dd, número serial Excel
+// Normalizar data — aceita Date JS, dd/mm/yyyy, yyyy-mm-dd, serial Excel
 function normalizarData(val) {
-  if (!val) return null;
-  // Número serial Excel
+  if (val === null || val === undefined || val === '') return null;
+
+  // Objeto Date do JS (xlsx entrega assim por padrão)
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+
+  // Número serial Excel (fallback)
   if (typeof val === 'number') {
     const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-    return d.toISOString().split('T')[0];
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dy = String(d.getUTCDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + dy;
   }
+
   const str = String(val).trim();
+  if (!str) return null;
+
   // dd/mm/yyyy
   const m1 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  if (m1) return m1[3] + '-' + m1[2].padStart(2,'0') + '-' + m1[1].padStart(2,'0');
+
   // yyyy-mm-dd
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  // Qualquer string de data reconhecível (fallback)
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+
   return null;
 }
 
@@ -140,7 +167,7 @@ export default function Importar() {
     setDadosAlunos(null); setDadosProfessores(null);
 
     const buffer = await file.arrayBuffer();
-    const wb     = XLSX.read(buffer);
+    const wb     = XLSX.read(buffer, { cellDates: true });
     setWorkbook(wb);
     setAbas(wb.SheetNames);
 
@@ -443,7 +470,7 @@ export default function Importar() {
                         <td style={{ color: 'var(--gray-400)', fontSize: 12 }}>{a._linha}</td>
                         <td style={{ fontWeight: 600 }}>{a.nome || <span style={{ color: 'var(--gray-300)' }}>—</span>}</td>
                         <td style={{ color: 'var(--gray-500)', fontSize: 13 }}>{a.email || '—'}</td>
-                        <td style={{ fontSize: 13 }}>{a.data_nascimento || '—'}</td>
+                        <td style={{ fontSize: 13 }}>{a.data_nascimento instanceof Date ? a.data_nascimento.toLocaleDateString('pt-BR') : (a.data_nascimento || '—')}</td>
                         <td style={{ fontSize: 13 }}>{a.telefone || '—'}</td>
                         <td>
                           {a.turma ? (
